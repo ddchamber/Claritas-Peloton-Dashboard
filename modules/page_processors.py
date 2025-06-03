@@ -3,10 +3,12 @@ import streamlit as st
 
 def run_forecasting_logic():
     summary = st.session_state.get("time_series_summary", "No forecast summary available.")
-    trend_snippet = st.session_state.get("trend_snippet", "")
+    historical_snippet = st.session_state.get("historical_snippet", "")
+    forecast_snippet = st.session_state.get("forecast_snippet", "")
     return {
         "forecast_summary": summary,
-        "trend_snippet": trend_snippet
+        "historical_snippet": historical_snippet,
+        "forecast_snippet": forecast_snippet
     }
 
 def run_current_events_logic():
