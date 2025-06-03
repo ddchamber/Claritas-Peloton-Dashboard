@@ -127,6 +127,10 @@ with col2:
     label_visibility="collapsed"
     )
 
+    st.markdown("<p class='filter-label'>Historical Viewing Period (Months)</p>", unsafe_allow_html=True)
+    months_to_show = st.number_input("Months", min_value=1, max_value=12, value=3, step=1, label_visibility="collapsed")
+    days_to_show = months_to_show * 28
+
     show_map = st.checkbox("Show DMA Map", value=False, key="toggle_map")
 
 # -- ARIMA Forecasting (Main left panel)
@@ -171,12 +175,13 @@ with col1:
     )
 
     fig, ax = plt.subplots(figsize=(14, 5))
-    ax.plot(train.index, train, label='Training')
+    recent_train = train.last(f"{days_to_show}D")
+    ax.plot(recent_train.index, recent_train, label='Peloton HitCount')
     ax.plot(forecast_index_peloton, forecast_peloton, label='Forecast', color='green')
     all_selected = set(selected_dmas) == set(dma_options)
     dma_label = "All Regions" if all_selected else ", ".join(selected_dmas)
     action_label = selected_action if selected_action != 'All' else "All Actions"
-    ax.set_title(f"{action_label} | {dma_label}")
+    ax.set_title(f"Peloton |{action_label} | {dma_label}")
     ax.set_xlabel("Date")
     ax.set_ylabel("HitCount")
     ax.legend()
@@ -224,7 +229,8 @@ with col1:
         forecast_index_comp = pd.date_range(start=comp_series.index[-1] + pd.Timedelta(days=1), periods=30, freq='D')
 
         fig2, ax2 = plt.subplots(figsize=(14, 5))
-        ax2.plot(comp_series.index, comp_series, label='Competitor HitCount', color='red')
+        recent_comp = comp_series.last(f"{days_to_show}D")
+        ax2.plot(recent_comp.index, recent_comp, label='Competitor HitCount')
         ax2.plot(forecast_index_comp, forecast_comp, label='Forecast', color='green')
         ax2.set_title(f"Competitor | {action_label} | {dma_label}")
         ax2.set_xlabel("Date")
@@ -250,24 +256,89 @@ client = boto3.client(
     aws_session_token=os.getenv("AWS_SESSION_TOKEN")
 )
 
-summary_df = pd.DataFrame({
+peloton_last_30 = train.tail(30)
+if not comp_series.empty:
+    comp_last_30 = comp_series.tail(30)
+else:
+    # If no competitor data, create dummy data with zeros
+    comp_last_30 = pd.Series([0] * 30, index=peloton_last_30.index)
+
+# Create comprehensive summary with both historical and forecast data
+historical_df = pd.DataFrame({
+    "Date": peloton_last_30.index,
+    "Historical HitCount for Peloton": peloton_last_30.values,
+    "Historical HitCount for Competitor": comp_last_30.values
+})
+
+forecast_df = pd.DataFrame({
     "Date": forecast_index_peloton,
     "Forecasted HitCount for Peloton": forecast_peloton,
     "Forecasted HitCount for Competitor": forecast_comp
 })
-trend_snippet = summary_df.tail(30).to_string(index=False)
+
+# Combine historical and forecast data
+combined_summary = pd.concat([
+    historical_df.add_suffix('_Historical'),
+    forecast_df.add_suffix('_Forecast')
+], axis=0).reset_index(drop=True)
+
+# Create a more readable format for the AI
+historical_snippet = historical_df.to_string(index=False)
+forecast_snippet = forecast_df.to_string(index=False)
 
 messages = [
     {
         "role": "user",
         "content": f"""
-You are a senior business analyst. Based on the following 30-day forecast of user hitcount activity, describe the current trend and suggest one action a marketing team could take.
+<Role>
+You are a senior fitness industry analyst. Your task is to identify the biggest industry trend from Peloton vs. competitor engagement data and explain what it means for the market's future.
+</Role>
 
-Forecast:
-{trend_snippet}
+<Core Focus>
+Look for the one major trend that tells the story of how the fitness industry is evolving right now.
+</Core Focus>
+
+ <Analysis Focus> 
+ **TREND IDENTIFICATION**: What's the dominant pattern? - Momentum shifts, competitive dynamics, market evolution signals
+INDUSTRY IMPACT: What does this mean for the broader fitness market?
+Market maturation, consumer behavior changes, competitive positioning shifts
+STRATEGIC IMPLICATIONS: What should Peloton do about it?
+Immediate opportunities, defensive moves, positioning adjustments
+ </Analysis Focus>
+
+<Required Output Structure>
+### **Industry Trend**:
+2-3 concise sentences identifying the dominant trend for:
+
+1. **Peloton's Competitive Position**: Comment on market share shifts, recent momentum, or performance relative to expectations.
+2. **Broader Fitness Industry Evolution**: Describe high-level consumer behavior trends, technological adoption patterns, or signs of market maturation.
+
+### **Evidence**:
+3-4 bullet points with specific proof from the data:
+- Use percentage changes, growth/decline rates, or comparative metrics between Peloton and its competitor.
+- Highlight timeline-based patterns (e.g., week-over-week or month-over-month changes).
+- Call out any inflection points, convergence/divergence, or trajectory mismatches in forecasts.
+
+### **Market Implications**:
+Analyze what the trend means for the fitness landscape:
+- **Consumer Behavior**: What are users expecting or prioritizing now?
+- **Competitive Dynamics**: How is market power shifting and why?
+- **Industry Stage**: Does this signal disruption, consolidation, or maturity?
+- **Strategic Inflection Point**: What's the next major decision the industry must make?
+
+</Required Output Structure>
+
+Use the Historical Data representing the previous 30 days hit counts and the Forecasted Data representing the next 30 days hit counts to generate a comprehensive analysis of Peloton's market position and future strategy using the required output structure.
+Take note of the detail in the Example and use that to guide your output for using the data given on the Peloton and Competitor engagement data below.
+
+Historical Engagement Data (Last 30 Days) {historical_snippet}
+Forecasted Engagement Data (Next 30 Days) {forecast_snippet}
+
+Focus more on the trends than the numbers because they are not to scale. and get strait to the point of the analysis.
 """
     }
 ]
+
 
 response = client.invoke_model(
     modelId="anthropic.claude-3-haiku-20240307-v1:0",
@@ -276,8 +347,8 @@ response = client.invoke_model(
     body=json.dumps({
         "messages": messages,
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 400,
-        "temperature": 0.5
+        "max_tokens": 2048,
+        "temperature": 0.0
     })
 )
 
@@ -286,4 +357,5 @@ st.markdown("**AI Recommendation:**")
 st.write(result["content"][0]["text"])
 
 st.session_state["time_series_summary"] = result["content"][0]["text"]
-st.session_state["trend_snippet"] = trend_snippet  
+st.session_state["historical_snippet"] = historical_snippet
+st.session_state["forecast_snippet"] = forecast_snippet
