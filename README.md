@@ -12,12 +12,11 @@ This AI-powered dashboard leverages an **agentic workflow** to identify behavior
 
 ## Who This Is For
 
-This tool is specifically designed for **Peloton’s marketing and analytics teams**, helping you go from raw data to campaign-ready insight — fast.
+This tool is specifically designed for **Peloton’s marketing and analytics teams**, helping you go from raw data to campaign-ready insight.
 
 ## Key Features
 
- Time Series Forecasting
+- Time Series Forecasting
 - Demographic & Regional Analysis
 - Current Events Aggregator
 - AI-Powered Marketing Recommendations
-- Specialized Pages for Deep Dives
