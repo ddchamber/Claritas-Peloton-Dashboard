@@ -1,0 +1,3 @@
+1_Forcasting Dashboard.py - Time Series model for Peloton and Competitor with AI insight
+2_Biggest Movers.py       - Trend analysis for specific regional and demographic groups with AI insight
+3_Current Events.py       - Current event webscraper with article summerizer and specialized PRIZM segment analysis
