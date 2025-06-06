@@ -1,0 +1,8 @@
+PRIZM2DMA.xlsx - 
+dma_demo_region.csv                 - Demographic data for each dma region
+new_competitor_data_with_region.csv - Cleaned competitor data used for forecasting
+new_peloton_data_with_region.csv    - Cleaned Peloton data used for forecasting
+nielsen_dma.json                    - JSON highlighing coordinates of DMAs for map feature
+peloton_dma.csv                     - Raw hitcount data for biggest movers tab
+peloton_dma_grouped.csv             - Grouped hitcount by DMA for filtered biggest movers tab
+prizm_descriptions.json             - JSON of PRIZM descriptions
